@@ -1,14 +1,11 @@
-"""
-Persistent session storage using SQLite.
-Saves indexed sessions, chat history, flashcards, and quiz scores.
-"""
+"""SQLite persistence for sessions, chat history, flashcards, quiz scores."""
 import sqlite3
 import json
 import os
 from datetime import datetime
 from typing import List
 
-DB_PATH = "data/sessions.db"
+DB_PATH = os.getenv("DB_PATH", "data/sessions.db")
 
 
 def _get_conn():

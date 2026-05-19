@@ -1,3 +1,4 @@
+"""Document loader — handles PDF, PPTX, TXT files."""
 import tempfile
 import os
 from typing import List
@@ -6,19 +7,12 @@ from pptx import Presentation
 
 
 def load_documents(uploaded_files) -> List[dict]:
-    """
-    Accepts Streamlit uploaded file objects.
-    Returns a list of {text, source} dicts (chunked).
-    """
     all_chunks = []
-
     for file in uploaded_files:
         ext = file.name.split(".")[-1].lower()
-
         with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
             tmp.write(file.read())
             tmp_path = tmp.name
-
         try:
             if ext == "pdf":
                 text = _read_pdf(tmp_path)
@@ -29,12 +23,10 @@ def load_documents(uploaded_files) -> List[dict]:
                     text = f.read()
             else:
                 continue
-
             chunks = _chunk_text(text, source=file.name)
             all_chunks.extend(chunks)
         finally:
             os.unlink(tmp_path)
-
     return all_chunks
 
 

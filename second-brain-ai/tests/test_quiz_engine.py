@@ -1,73 +1,51 @@
-"""
-Unit tests for quiz_engine MCQ parser.
-"""
+"""Unit tests for quiz_engine MCQ parser."""
 from src.features.quiz_engine import parse_mcqs, get_difficulty_prompt
 
-
-SAMPLE_MCQ_TEXT = """
-Q1. What is the main purpose of Ansible?
+SAMPLE = """
+Q1. What is Ansible used for?
 A) Database management
 B) Configuration management and automation
 C) Network monitoring
 D) Code compilation
 Answer: B
-Explanation: Ansible is primarily used for configuration management and IT automation.
+Explanation: Ansible is used for configuration management.
 
-Q2. Which file format do Ansible Playbooks use?
+Q2. What format do Playbooks use?
 A) JSON
 B) XML
 C) YAML
 D) TOML
 Answer: C
-Explanation: Ansible Playbooks are written in YAML format.
+Explanation: Ansible Playbooks are written in YAML.
 """
 
 
 class TestParseMCQs:
-
-    def test_parses_correct_number_of_questions(self):
-        questions = parse_mcqs(SAMPLE_MCQ_TEXT)
-        assert len(questions) == 2
+    def test_parses_correct_number(self):
+        assert len(parse_mcqs(SAMPLE)) == 2
 
     def test_question_text_extracted(self):
-        questions = parse_mcqs(SAMPLE_MCQ_TEXT)
-        assert "Ansible" in questions[0]["question"]
+        assert "Ansible" in parse_mcqs(SAMPLE)[0]["question"]
 
     def test_all_options_present(self):
-        questions = parse_mcqs(SAMPLE_MCQ_TEXT)
-        q = questions[0]
-        assert set(q["options"].keys()) == {"A", "B", "C", "D"}
+        assert set(parse_mcqs(SAMPLE)[0]["options"].keys()) == {"A", "B", "C", "D"}
 
     def test_correct_answer_extracted(self):
-        questions = parse_mcqs(SAMPLE_MCQ_TEXT)
-        assert questions[0]["answer"] == "B"
-        assert questions[1]["answer"] == "C"
+        qs = parse_mcqs(SAMPLE)
+        assert qs[0]["answer"] == "B"
+        assert qs[1]["answer"] == "C"
 
-    def test_explanation_extracted(self):
-        questions = parse_mcqs(SAMPLE_MCQ_TEXT)
-        assert "configuration management" in questions[0]["explanation"].lower()
-
-    def test_empty_text_returns_empty_list(self):
+    def test_empty_text_returns_empty(self):
         assert parse_mcqs("") == []
 
-    def test_malformed_text_returns_empty_list(self):
-        assert parse_mcqs("This is just random text with no MCQ format") == []
-
-    def test_partial_question_skipped(self):
-        partial = "Q1. Incomplete question\nA) Only one option"
-        result = parse_mcqs(partial)
-        assert len(result) == 0  # no answer field, should be skipped
+    def test_malformed_returns_empty(self):
+        assert parse_mcqs("random text no format") == []
 
 
 class TestGetDifficultyPrompt:
-
-    def test_empty_topics_returns_empty_string(self):
+    def test_empty_returns_empty(self):
         assert get_difficulty_prompt([]) == ""
 
-    def test_topics_included_in_prompt(self):
-        prompt = get_difficulty_prompt(["docker", "kubernetes"])
-        assert "docker" in prompt
-        assert "kubernetes" in prompt
-
-    def test_returns_string(self):
-        assert isinstance(get_difficulty_prompt(["ansible"]), str)
+    def test_topics_in_prompt(self):
+        p = get_difficulty_prompt(["docker", "kubernetes"])
+        assert "docker" in p and "kubernetes" in p

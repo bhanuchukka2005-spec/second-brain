@@ -1,3 +1,4 @@
+"""ChromaDB vector store with source metadata."""
 from typing import List
 import chromadb
 from chromadb.utils import embedding_functions
@@ -25,7 +26,6 @@ class ChromaStore:
         self.collection.add(documents=texts, metadatas=metadatas, ids=ids)
 
     def query(self, query_text: str, n_results: int = 5) -> List[dict]:
-        """Returns list of {text, source} dicts."""
         count = self.collection.count()
         if count == 0:
             return []

@@ -1,7 +1,4 @@
-"""
-Flashcard generator — produces Anki-style Q&A cards from notes.
-Exportable as CSV for Anki import.
-"""
+"""Flashcard generator — Anki-compatible CSV/JSON export."""
 import csv
 import io
 import json
@@ -10,13 +7,6 @@ from typing import List
 
 
 def parse_flashcards_from_text(raw: str) -> List[dict]:
-    """
-    Parse LLM output into list of {front, back} dicts.
-    Expects format:
-    FRONT: question
-    BACK: answer
-    ---
-    """
     cards = []
     blocks = re.split(r"-{3,}", raw)
     for block in blocks:
@@ -31,7 +21,6 @@ def parse_flashcards_from_text(raw: str) -> List[dict]:
 
 
 def export_to_csv(cards: List[dict]) -> str:
-    """Export flashcards to CSV string for Anki import."""
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["Front", "Back"])

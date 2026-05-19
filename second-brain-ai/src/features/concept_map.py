@@ -1,18 +1,11 @@
+"""Concept map generator using Mermaid mindmap syntax."""
 import re
-
-"""
-Concept map generator.
-Takes notes context and produces a Mermaid diagram string
-that Streamlit can render as an interactive mind map.
-"""
 
 
 def parse_mermaid_from_response(raw: str) -> str:
-    """Extract mermaid block from LLM response."""
     match = re.search(r"```mermaid\s*(.*?)```", raw, re.DOTALL)
     if match:
         return match.group(1).strip()
-    # If LLM returned raw mermaid without fences
     if "graph" in raw or "mindmap" in raw:
         return raw.strip()
     return ""
