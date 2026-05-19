@@ -2,9 +2,9 @@ name: CI — Test & Lint
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, master, develop]
   pull_request:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   test:
@@ -12,6 +12,10 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
+
+    defaults:
+      run:
+        working-directory: second-brain-ai   # ← run all commands inside this folder
 
     steps:
       - name: Checkout code
@@ -26,7 +30,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('second-brain-ai/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
 
@@ -49,11 +53,16 @@ jobs:
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
-          file: ./coverage.xml
+          file: second-brain-ai/coverage.xml
           fail_ci_if_error: false
 
   lint:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: second-brain-ai   # ← run all commands inside this folder
+
     steps:
       - uses: actions/checkout@v4
 
