@@ -1,24 +1,18 @@
-"""Health check endpoints."""
+"""Health check endpoint — checks PostgreSQL and Ollama."""
 from fastapi import APIRouter
 from api.models.schemas import HealthResponse
 from src.llm.ollama_client import is_ollama_running
 from src.config import config
-import sqlite3
+from src.db.connection import execute_one
 
 router = APIRouter(prefix="/health", tags=["Health"])
 
 
-@router.get("", response_model=HealthResponse, summary="Health check")
+@router.get("", response_model=HealthResponse, summary="API health check")
 async def health_check() -> HealthResponse:
-    """
-    Returns service health status.
-    Use this to verify the API is running before making other calls.
-    """
-    # Check DB connectivity
+    """Returns service health. Use this to verify the API is running."""
     try:
-        conn = sqlite3.connect(config.db_path)
-        conn.execute("SELECT 1")
-        conn.close()
+        execute_one("SELECT 1")
         db_status = "ok"
     except Exception:
         db_status = "error"
