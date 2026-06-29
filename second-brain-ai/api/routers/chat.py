@@ -1,74 +1,46 @@
-"""
-Chat endpoints.
-POST /chat/ask        — ask a question (returns full response)
-POST /chat/ask/stream — ask a question (streams response token by token)
-"""
+"""Chat endpoints — PostgreSQL-backed with session ownership verification."""
 import logging
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from api.models.schemas import ChatRequest, ChatResponse
 from api.dependencies import CurrentUser, get_brain
-from src.persistence.session_store import save_chat_message
+from src.db.session_store import save_chat_message, get_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
-@router.post(
-    "/ask",
-    response_model=ChatResponse,
-    summary="Ask a question about your notes"
-)
+@router.post("/ask", response_model=ChatResponse, summary="Ask a question about your notes")
 async def ask(body: ChatRequest, current_user: CurrentUser) -> ChatResponse:
     """
-    Ask a question about the indexed notes in a session.
-    The AI answers using only content from your uploaded material (RAG).
-    Includes source attribution showing which files the answer came from.
+    Ask a question about indexed notes (RAG).
+    Only the session owner can query their session.
     """
+    session = get_session(body.session_id, current_user["id"])
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
+
     try:
-        brain = get_brain(
-            session_id=body.session_id,
-            provider=body.provider,
-            api_key=body.api_key,
-            ollama_model=body.ollama_model,
-        )
+        brain = get_brain(body.session_id, body.provider, body.api_key, body.ollama_model)
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to initialize AI provider: {e}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Provider error: {e}")
 
     answer, sources = brain.ask(body.question)
-
-    # Persist to chat history
     save_chat_message(body.session_id, "user", body.question)
     save_chat_message(body.session_id, "assistant", answer)
 
-    logger.info(
-        "Chat answer: session=%d user=%s provider=%s",
-        body.session_id, current_user["username"], body.provider
-    )
-
-    return ChatResponse(
-        answer=answer,
-        sources=sources,
-        session_id=body.session_id
-    )
+    logger.info("Chat: session=%d user=%s provider=%s", body.session_id, current_user["username"], body.provider)
+    return ChatResponse(answer=answer, sources=sources, session_id=body.session_id)
 
 
-@router.post(
-    "/ask/stream",
-    summary="Ask a question with streaming response (Ollama only)",
-    response_class=StreamingResponse
-)
+@router.post("/ask/stream", summary="Streaming chat for Ollama provider")
 async def ask_stream(body: ChatRequest, current_user: CurrentUser):
     """
     Stream the AI response token by token.
-    Only supported with Ollama (local) provider.
-    Returns text/event-stream — consume with EventSource in the frontend.
+    Only supported with the Ollama (local) provider.
     """
     if body.provider != "ollama":
         raise HTTPException(
@@ -76,46 +48,33 @@ async def ask_stream(body: ChatRequest, current_user: CurrentUser):
             detail="Streaming is only supported with the Ollama provider."
         )
 
+    session = get_session(body.session_id, current_user["id"])
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
+
     try:
-        brain = get_brain(
-            session_id=body.session_id,
-            provider=body.provider,
-            api_key=body.api_key,
-            ollama_model=body.ollama_model,
-        )
+        brain = get_brain(body.session_id, body.provider, body.api_key, body.ollama_model)
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to initialize Ollama: {e}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Ollama error: {e}")
 
-    # Retrieve context
     chunks = brain.store.query(body.question, n_results=2)
     if not chunks:
-        async def no_context():
+        async def no_ctx():
             yield "I couldn't find relevant information in your notes."
-        return StreamingResponse(no_context(), media_type="text/plain")
+        return StreamingResponse(no_ctx(), media_type="text/plain")
 
     ctx_words = chunks[0]["text"].split()[:300]
-    context = " ".join(ctx_words)
-    prompt = f"Notes: {context}\n\nQ: {body.question}\nA:"
-
+    prompt = f"Notes: {' '.join(ctx_words)}\n\nQ: {body.question}\nA:"
     save_chat_message(body.session_id, "user", body.question)
 
-    def token_generator():
-        full_response = []
+    def token_gen():
+        full = []
         from src.llm.ollama_client import stream_ollama
         for token in stream_ollama(brain.model, prompt, max_tokens=400):
-            full_response.append(token)
+            full.append(token)
             yield token
-        # Save full response to history after streaming
-        save_chat_message(body.session_id, "assistant", "".join(full_response))
+        save_chat_message(body.session_id, "assistant", "".join(full))
 
-    logger.info(
-        "Streaming chat: session=%d user=%s",
-        body.session_id, current_user["username"]
-    )
-
-    return StreamingResponse(token_generator(), media_type="text/plain")
+    return StreamingResponse(token_gen(), media_type="text/plain")
