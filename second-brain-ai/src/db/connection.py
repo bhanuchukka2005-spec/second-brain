@@ -7,18 +7,17 @@ import logging
 from contextlib import contextmanager
 from typing import Generator, Optional
 
-import psycopg2
 from psycopg2 import pool
 from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger(__name__)
 
 DB_CONFIG = {
-    "host":     os.getenv("PG_HOST",     "localhost"),
+    "host":     os.getenv("PG_HOST", "localhost"),
     "port":     int(os.getenv("PG_PORT", "5432")),
-    "dbname":   os.getenv("PG_DB",       "second_brain"),
-    "user":     os.getenv("PG_USER",     "postgres"),
-    "password": os.getenv("PG_PASSWORD", "bhanu@1234567"),
+    "dbname":   os.getenv("PG_DB", "second_brain"),
+    "user":     os.getenv("PG_USER", "postgres"),
+    "password": os.getenv("PG_PASSWORD", ""),
 }
 
 _pool: Optional[pool.ThreadedConnectionPool] = None
@@ -41,7 +40,6 @@ def init_pool() -> None:
 @contextmanager
 def get_conn() -> Generator:
     """Context manager that returns a DB connection from the pool."""
-    global _pool
     if _pool is None:
         init_pool()
     conn = _pool.getconn()
