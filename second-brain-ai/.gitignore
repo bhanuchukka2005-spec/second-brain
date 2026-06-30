@@ -8,12 +8,19 @@ venv/
 dist/
 build/
 .DS_Store
+
+# Generated data — never commit these
 data/uploads/*
 !data/uploads/.gitkeep
+data/chroma/
 data/sessions.db
 logs/
+
+# Test & coverage
 .pytest_cache/
 .coverage
 coverage.xml
 htmlcov/
+
+# Streamlit
 .streamlit/secrets.toml
