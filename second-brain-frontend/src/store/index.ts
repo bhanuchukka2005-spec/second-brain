@@ -22,8 +22,13 @@ export const useAuthStore = create<AuthState>()(
         set({ user, token })
       },
       logout: () => {
+        // Clear everything tied to this user — token, provider/API key, sessions, chat
         localStorage.removeItem('token')
         localStorage.removeItem('provider-store')
+        localStorage.removeItem('auth-store')
+        useProviderStore.getState().reset()
+        useSessionStore.getState().reset()
+        useChatStore.getState().resetAll()
         set({ user: null, token: null })
       },
       isAuthenticated: () => !!get().token,
@@ -41,6 +46,7 @@ interface SessionState {
   addSession: (session: Session) => void
   removeSession: (id: number) => void
   setActiveSession: (session: Session | null) => void
+  reset: () => void
 }
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -54,35 +60,37 @@ export const useSessionStore = create<SessionState>((set) => ({
       activeSession: s.activeSession?.id === id ? null : s.activeSession,
     })),
   setActiveSession: (session) => set({ activeSession: session }),
+  reset: () => set({ sessions: [], activeSession: null }),
 }))
 
 // ── Chat Store ────────────────────────────────────────────────────────────────
 
 interface ChatState {
-  messages: Record<number, ChatMessage[]>  // sessionId → messages
+  messages: Record<number, ChatMessage[]>
   addMessage: (sessionId: number, msg: ChatMessage) => void
   setMessages: (sessionId: number, msgs: ChatMessage[]) => void
   clearMessages: (sessionId: number) => void
   getMessages: (sessionId: number) => ChatMessage[]
+  resetAll: () => void
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: {},
   addMessage: (sessionId, msg) =>
     set((s) => ({
-      messages: {
-        ...s.messages,
-        [sessionId]: [...(s.messages[sessionId] ?? []), msg],
-      },
+      messages: { ...s.messages, [sessionId]: [...(s.messages[sessionId] ?? []), msg] },
     })),
   setMessages: (sessionId, msgs) =>
     set((s) => ({ messages: { ...s.messages, [sessionId]: msgs } })),
   clearMessages: (sessionId) =>
     set((s) => ({ messages: { ...s.messages, [sessionId]: [] } })),
   getMessages: (sessionId) => get().messages[sessionId] ?? [],
+  resetAll: () => set({ messages: {} }),
 }))
 
 // ── Provider Store ────────────────────────────────────────────────────────────
+// NOT persisted with a key tied to a user — must be cleared explicitly on logout
+// so the next user who logs in on the same browser doesn't see a stale API key.
 
 interface ProviderState {
   provider: ProviderID
@@ -91,6 +99,7 @@ interface ProviderState {
   setProvider: (p: ProviderID) => void
   setApiKey: (k: string) => void
   setOllamaModel: (m: string) => void
+  reset: () => void
 }
 
 export const useProviderStore = create<ProviderState>()(
@@ -102,6 +111,7 @@ export const useProviderStore = create<ProviderState>()(
       setProvider: (provider) => set({ provider }),
       setApiKey: (apiKey) => set({ apiKey }),
       setOllamaModel: (ollamaModel) => set({ ollamaModel }),
+      reset: () => set({ provider: 'ollama', apiKey: '', ollamaModel: 'llama3.2' }),
     }),
     { name: 'provider-store' }
   )
