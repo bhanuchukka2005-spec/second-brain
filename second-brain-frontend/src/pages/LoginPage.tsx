@@ -2,7 +2,7 @@ import { useState, FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Brain, Loader2, Eye, EyeOff } from 'lucide-react'
 import { authApi } from '../api/client'
-import { useAuthStore } from '../store'
+import { useAuthStore, useProviderStore, useSessionStore, useChatStore } from '../store'
 
 export function LoginPage() {
   const [username, setUsername] = useState('')
@@ -10,7 +10,7 @@ export function LoginPage() {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const { setAuth } = useAuthStore()
+  const { setAuth, user } = useAuthStore()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: FormEvent) => {
@@ -21,6 +21,15 @@ export function LoginPage() {
       const tokenRes = await authApi.login(username, password)
       localStorage.setItem('token', tokenRes.data.access_token)
       const userRes = await authApi.me()
+
+      // If a different user was previously logged in on this browser,
+      // wipe their leftover provider/session/chat data before setting new auth.
+      if (user && user.username !== userRes.data.username) {
+        useProviderStore.getState().reset()
+        useSessionStore.getState().reset()
+        useChatStore.getState().resetAll()
+      }
+
       setAuth(userRes.data, tokenRes.data.access_token)
       navigate('/chat')
     } catch {
@@ -33,7 +42,6 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 px-4">
       <div className="w-full max-w-md animate-slide-up">
-        {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-600/20 border border-brand-500/30 mb-4">
             <Brain className="w-8 h-8 text-brand-400" />
@@ -42,7 +50,6 @@ export function LoginPage() {
           <p className="text-gray-400 mt-2 text-sm">Chat with your notes. Ace your exams.</p>
         </div>
 
-        {/* Card */}
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
           <h2 className="text-xl font-semibold text-white mb-6">Sign in</h2>
 
