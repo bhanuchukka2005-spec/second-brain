@@ -7,12 +7,15 @@ from src.db.connection import get_conn
 
 logger = logging.getLogger(__name__)
 
+# Table creation only — NO index on google_sub here, since on existing
+# databases the users table already exists without that column.
+# The index is created in MIGRATION_SQL after the column is added.
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS users (
-    id           SERIAL PRIMARY KEY,
-    username     VARCHAR(50) UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at   TIMESTAMPTZ DEFAULT NOW()
+    id            SERIAL PRIMARY KEY,
+    username      VARCHAR(50) UNIQUE NOT NULL,
+    password_hash TEXT,
+    created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -58,14 +61,40 @@ CREATE TABLE IF NOT EXISTS quiz_scores (
 CREATE INDEX IF NOT EXISTS idx_scores_session ON quiz_scores(session_id);
 """
 
+# Adds Google OAuth columns to an existing users table.
+# Safe to run multiple times — checks column existence first.
+# The google_sub index is created HERE, only after the column is added.
+MIGRATION_SQL = """
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='google_sub'
+    ) THEN
+        ALTER TABLE users ADD COLUMN google_sub VARCHAR(100) UNIQUE;
+        ALTER TABLE users ADD COLUMN email VARCHAR(255);
+        ALTER TABLE users ADD COLUMN avatar_url TEXT;
+        ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub);
+"""
+
 
 def init_db() -> None:
-    """Create all tables if they don't exist. Safe to call multiple times."""
+    """Create all tables if they don't exist, then apply migrations. Safe to call multiple times."""
     try:
         with get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(SCHEMA_SQL)
-        logger.info("PostgreSQL schema initialized successfully")
+        logger.info("Base schema ensured")
+
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(MIGRATION_SQL)
+        logger.info("Migrations applied — google_sub columns ready")
+
     except Exception as e:
         logger.error("Schema initialization failed: %s", e)
         raise
@@ -75,4 +104,4 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     print("Creating tables in PostgreSQL...")
     init_db()
-    print("✅ Done!")
+    print("Done!")
