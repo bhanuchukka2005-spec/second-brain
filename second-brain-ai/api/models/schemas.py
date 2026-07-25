@@ -1,12 +1,9 @@
 """
 Pydantic schemas for all API request/response models.
-FastAPI uses these for automatic validation and OpenAPI docs generation.
 """
 from pydantic import BaseModel, Field, field_validator
 from typing import List
 
-
-# ── Auth ──────────────────────────────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
@@ -25,6 +22,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleLoginRequest(BaseModel):
+    """Frontend sends the Google ID token obtained from Google Sign-In."""
+    id_token: str = Field(..., min_length=10)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -35,12 +37,6 @@ class UserResponse(BaseModel):
     id: int
     username: str
     created_at: str
-
-
-# ── Sessions ──────────────────────────────────────────────────────────────────
-
-class SessionCreateRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
 
 
 class SessionResponse(BaseModel):
@@ -55,8 +51,6 @@ class SessionListResponse(BaseModel):
     sessions: List[SessionResponse]
     total: int
 
-
-# ── Chat ──────────────────────────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
@@ -79,13 +73,6 @@ class ChatResponse(BaseModel):
     sources: List[str]
     session_id: int
 
-
-class ChatHistoryResponse(BaseModel):
-    history: List[dict]
-    session_id: int
-
-
-# ── Study Features ────────────────────────────────────────────────────────────
 
 class MCQRequest(BaseModel):
     session_id: int
@@ -185,8 +172,6 @@ class StudyPlanResponse(BaseModel):
     weak_topics: List[str]
 
 
-# ── Quiz Scores ───────────────────────────────────────────────────────────────
-
 class QuizScoreRequest(BaseModel):
     session_id: int
     score: int = Field(..., ge=0)
@@ -202,8 +187,6 @@ class QuizScoreResponse(BaseModel):
     topic: str
     timestamp: str
 
-
-# ── Health ────────────────────────────────────────────────────────────────────
 
 class HealthResponse(BaseModel):
     status: str
