@@ -1,11 +1,13 @@
 """
 PostgreSQL-backed user management with JWT auth.
+Supports both username/password and Google OAuth accounts.
 """
 import hashlib
 import hmac
 import base64
 import json
 import os
+import re
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
@@ -103,3 +105,54 @@ def get_user_by_id(user_id: int) -> Optional[dict]:
 def init_user_table() -> None:
     """No-op — table created by schema.py init_db()."""
     pass
+
+
+def _slugify_username(name: str, email: str) -> str:
+    """Generate a clean username from Google name/email, ensuring uniqueness."""
+    base = re.sub(r"[^a-z0-9_]", "", name.lower().replace(" ", "_"))
+    if not base:
+        base = email.split("@")[0].lower()
+    base = base[:40] or "user"
+
+    candidate = base
+    suffix = 1
+    while get_user_by_username(candidate):
+        suffix += 1
+        candidate = f"{base}{suffix}"
+    return candidate
+
+
+def get_user_by_google_sub(google_sub: str) -> Optional[dict]:
+    return execute_one(
+        """
+        SELECT id, username, email, avatar_url, created_at::text AS created_at
+        FROM users WHERE google_sub = %s
+        """,
+        (google_sub,)
+    )
+
+
+def get_or_create_google_user(email: str, name: str, google_sub: str, picture: str = "") -> dict:
+    """
+    Find an existing Google-linked user, or create a new one.
+    Does not auto-link to existing password accounts with the same email
+    (security: prevents account takeover via email spoofing).
+    """
+    existing = get_user_by_google_sub(google_sub)
+    if existing:
+        logger.info("Existing Google user logged in: %s", existing["username"])
+        return existing
+
+    username = _slugify_username(name, email)
+    uid = execute_write(
+        """
+        INSERT INTO users (username, google_sub, email, avatar_url)
+        VALUES (%s, %s, %s, %s) RETURNING id
+        """,
+        (username, google_sub, email, picture)
+    )
+    logger.info("New Google user created: %s (%s)", username, email)
+    return {
+        "id": uid, "username": username, "email": email,
+        "avatar_url": picture, "created_at": datetime.utcnow().isoformat(),
+    }
