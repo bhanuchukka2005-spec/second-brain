@@ -5,8 +5,6 @@ import type {
   QuizScore, HealthResponse, ProviderID,
 } from '../types'
 
-// In dev, Vite proxies /api → http://127.0.0.1:8000
-// In prod, set VITE_API_URL to your backend URL
 const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 export const api = axios.create({
@@ -14,14 +12,12 @@ export const api = axios.create({
   timeout: 60_000,
 })
 
-// ── Auth interceptor ──────────────────────────────────────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
-// ── Response interceptor ──────────────────────────────────────────────────────
 api.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -34,20 +30,26 @@ api.interceptors.response.use(
 )
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
+
 export const authApi = {
   register: (username: string, password: string) =>
     api.post<User>('/auth/register', { username, password }),
+
   login: (username: string, password: string) =>
     api.post<TokenResponse>('/auth/login', { username, password }),
+
+  googleLogin: (idToken: string) =>
+    api.post<TokenResponse>('/auth/google', { id_token: idToken }),
+
   me: () => api.get<User>('/auth/me'),
 }
 
 // ── Sessions ──────────────────────────────────────────────────────────────────
+
 export const sessionsApi = {
   list: () => api.get<SessionListResponse>('/sessions'),
   delete: (id: number) => api.delete(`/sessions/${id}`),
 
-  // Upload files — session_id=0 means "create new"
   index: (
     _sessionId: number,
     files: File[],
@@ -58,19 +60,7 @@ export const sessionsApi = {
     files.forEach((f) => form.append('files', f))
     form.append('session_name', sessionName)
     if (youtubeUrl) form.append('youtube_url', youtubeUrl)
-    // Always use 0 — backend creates the real session ID
     return api.post<Session>(`/sessions/0/index`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 120_000, // indexing can take a while
-    })
-  },
-
-  // Re-index an existing session (loads it back into memory after restart)
-  reindex: (sessionId: number, files: File[]) => {
-    const form = new FormData()
-    files.forEach((f) => form.append('files', f))
-    form.append('session_name', `Reload-${sessionId}`)
-    return api.post<Session>(`/sessions/${sessionId}/index`, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 120_000,
     })
@@ -83,6 +73,7 @@ export const sessionsApi = {
 }
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
+
 export const chatApi = {
   ask: (
     question: string,
@@ -99,7 +90,6 @@ export const chatApi = {
       ollama_model: ollamaModel,
     }),
 
-  // Streaming via fetch (axios doesn't support streaming)
   askStream: (
     question: string,
     sessionId: number,
@@ -140,6 +130,7 @@ export const chatApi = {
 }
 
 // ── Study ─────────────────────────────────────────────────────────────────────
+
 interface StudyBase {
   session_id: number
   provider: ProviderID
@@ -187,6 +178,7 @@ export const studyApi = {
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
+
 export const healthApi = {
   check: () => api.get<HealthResponse>('/health'),
 }
