@@ -2,8 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User, Session, ChatMessage, ProviderID } from '../types'
 
-// ── Auth Store ────────────────────────────────────────────────────────────────
-
 interface AuthState {
   user: User | null
   token: string | null
@@ -22,7 +20,6 @@ export const useAuthStore = create<AuthState>()(
         set({ user, token })
       },
       logout: () => {
-        // Clear everything tied to this user — token, provider/API key, sessions, chat
         localStorage.removeItem('token')
         localStorage.removeItem('provider-store')
         localStorage.removeItem('auth-store')
@@ -36,8 +33,6 @@ export const useAuthStore = create<AuthState>()(
     { name: 'auth-store' }
   )
 )
-
-// ── Session Store ─────────────────────────────────────────────────────────────
 
 interface SessionState {
   sessions: Session[]
@@ -63,8 +58,6 @@ export const useSessionStore = create<SessionState>((set) => ({
   reset: () => set({ sessions: [], activeSession: null }),
 }))
 
-// ── Chat Store ────────────────────────────────────────────────────────────────
-
 interface ChatState {
   messages: Record<number, ChatMessage[]>
   addMessage: (sessionId: number, msg: ChatMessage) => void
@@ -87,10 +80,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
   getMessages: (sessionId) => get().messages[sessionId] ?? [],
   resetAll: () => set({ messages: {} }),
 }))
-
-// ── Provider Store ────────────────────────────────────────────────────────────
-// NOT persisted with a key tied to a user — must be cleared explicitly on logout
-// so the next user who logs in on the same browser doesn't see a stale API key.
 
 interface ProviderState {
   provider: ProviderID
@@ -116,8 +105,6 @@ export const useProviderStore = create<ProviderState>()(
     { name: 'provider-store' }
   )
 )
-
-// ── UI Store ──────────────────────────────────────────────────────────────────
 
 interface UIState {
   sidebarOpen: boolean
