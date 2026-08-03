@@ -3,15 +3,25 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Brain, Loader2, Eye, EyeOff } from 'lucide-react'
 import { authApi } from '../api/client'
 import { useAuthStore, useProviderStore, useSessionStore, useChatStore } from '../store'
+import { GoogleSignInButton } from '../components/layout/GoogleSignInButton'
 
 export function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const { setAuth, user } = useAuthStore()
   const navigate = useNavigate()
+
+  const resetStaleDataIfDifferentUser = (newUsername: string) => {
+    if (user && user.username !== newUsername) {
+      useProviderStore.getState().reset()
+      useSessionStore.getState().reset()
+      useChatStore.getState().resetAll()
+    }
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -21,21 +31,30 @@ export function LoginPage() {
       const tokenRes = await authApi.login(username, password)
       localStorage.setItem('token', tokenRes.data.access_token)
       const userRes = await authApi.me()
-
-      // If a different user was previously logged in on this browser,
-      // wipe their leftover provider/session/chat data before setting new auth.
-      if (user && user.username !== userRes.data.username) {
-        useProviderStore.getState().reset()
-        useSessionStore.getState().reset()
-        useChatStore.getState().resetAll()
-      }
-
+      resetStaleDataIfDifferentUser(userRes.data.username)
       setAuth(userRes.data, tokenRes.data.access_token)
       navigate('/chat')
     } catch {
       setError('Invalid username or password.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleGoogleToken = async (idToken: string) => {
+    setError('')
+    setGoogleLoading(true)
+    try {
+      const tokenRes = await authApi.googleLogin(idToken)
+      localStorage.setItem('token', tokenRes.data.access_token)
+      const userRes = await authApi.me()
+      resetStaleDataIfDifferentUser(userRes.data.username)
+      setAuth(userRes.data, tokenRes.data.access_token)
+      navigate('/chat')
+    } catch {
+      setError('Google sign-in failed. Please try again.')
+    } finally {
+      setGoogleLoading(false)
     }
   }
 
@@ -53,6 +72,22 @@ export function LoginPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
           <h2 className="text-xl font-semibold text-white mb-6">Sign in</h2>
 
+          <div className="mb-5">
+            {googleLoading ? (
+              <div className="flex items-center justify-center py-3">
+                <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+              </div>
+            ) : (
+              <GoogleSignInButton onToken={handleGoogleToken} onError={setError} />
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px bg-gray-800" />
+            <span className="text-xs text-gray-500">OR</span>
+            <div className="flex-1 h-px bg-gray-800" />
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1.5">Username</label>
@@ -61,7 +96,6 @@ export function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                autoFocus
                 placeholder="your_username"
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-brand-500 transition-colors"
               />
