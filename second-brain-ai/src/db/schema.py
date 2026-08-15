@@ -7,9 +7,6 @@ from src.db.connection import get_conn
 
 logger = logging.getLogger(__name__)
 
-# Table creation only — NO index on google_sub here, since on existing
-# databases the users table already exists without that column.
-# The index is created in MIGRATION_SQL after the column is added.
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS users (
     id            SERIAL PRIMARY KEY,
@@ -61,10 +58,8 @@ CREATE TABLE IF NOT EXISTS quiz_scores (
 CREATE INDEX IF NOT EXISTS idx_scores_session ON quiz_scores(session_id);
 """
 
-# Adds Google OAuth columns to an existing users table.
-# Safe to run multiple times — checks column existence first.
-# The google_sub index is created HERE, only after the column is added.
-MIGRATION_SQL = """
+# Adds Google OAuth columns (idempotent — safe on fresh or existing databases)
+MIGRATION_GOOGLE_SQL = """
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -81,9 +76,27 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub);
 """
 
+# Adds password-reset token columns (idempotent)
+MIGRATION_RESET_SQL = """
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name='users' AND column_name='reset_token'
+    ) THEN
+        ALTER TABLE users ADD COLUMN reset_token VARCHAR(100);
+        ALTER TABLE users ADD COLUMN reset_token_expires TIMESTAMPTZ;
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(reset_token);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique
+    ON users(email) WHERE email IS NOT NULL;
+"""
+
 
 def init_db() -> None:
-    """Create all tables if they don't exist, then apply migrations. Safe to call multiple times."""
+    """Create all tables, then apply migrations in order. Safe to call repeatedly."""
     try:
         with get_conn() as conn:
             with conn.cursor() as cur:
@@ -92,8 +105,13 @@ def init_db() -> None:
 
         with get_conn() as conn:
             with conn.cursor() as cur:
-                cur.execute(MIGRATION_SQL)
-        logger.info("Migrations applied — google_sub columns ready")
+                cur.execute(MIGRATION_GOOGLE_SQL)
+        logger.info("Google OAuth columns ensured")
+
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(MIGRATION_RESET_SQL)
+        logger.info("Password reset columns ensured")
 
     except Exception as e:
         logger.error("Schema initialization failed: %s", e)
