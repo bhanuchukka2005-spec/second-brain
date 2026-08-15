@@ -2,18 +2,28 @@
 Pydantic schemas for all API request/response models.
 """
 from pydantic import BaseModel, Field, field_validator
-from typing import List
+from typing import List, Optional
 
 
 class RegisterRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=8, max_length=100)
+    email: Optional[str] = Field(default=None, max_length=255)
 
     @field_validator("username")
     @classmethod
     def username_alphanumeric(cls, v: str) -> str:
         if not v.replace("_", "").replace("-", "").isalnum():
             raise ValueError("Username must be alphanumeric (underscores and hyphens allowed)")
+        return v.lower()
+
+    @field_validator("email")
+    @classmethod
+    def email_basic_check(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or v == "":
+            return None
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError("Enter a valid email address")
         return v.lower()
 
 
@@ -23,8 +33,22 @@ class LoginRequest(BaseModel):
 
 
 class GoogleLoginRequest(BaseModel):
-    """Frontend sends the Google ID token obtained from Google Sign-In."""
     id_token: str = Field(..., min_length=10)
+
+
+class ForgotPasswordRequest(BaseModel):
+    """User submits username or email — response is always generic to prevent
+    account enumeration (never reveal whether the account exists)."""
+    identifier: str = Field(..., min_length=1, max_length=255)
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=10)
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+
+class MessageResponse(BaseModel):
+    message: str
 
 
 class TokenResponse(BaseModel):
