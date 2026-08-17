@@ -5,6 +5,7 @@ import { authApi } from '../api/client'
 
 export function RegisterPage() {
   const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,11 +19,11 @@ export function RegisterPage() {
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
     setLoading(true)
     try {
-      await authApi.register(username, password)
+      await authApi.register(username, password, email.trim() || undefined)
       navigate('/login?registered=1')
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status
-      setError(status === 409 ? 'Username already taken.' : 'Registration failed. Try again.')
+      setError(status === 409 ? 'Username or email is already taken.' : 'Registration failed. Try again.')
     } finally {
       setLoading(false)
     }
@@ -53,6 +54,21 @@ export function RegisterPage() {
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-brand-500"
               />
             </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm text-gray-400">Email</label>
+                <span className="text-xs text-gray-600">Optional, but needed for password reset</span>
+              </div>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-brand-500"
+              />
+            </div>
+
             <div>
               <label className="block text-sm text-gray-400 mb-1.5">Password</label>
               <input
@@ -64,6 +80,7 @@ export function RegisterPage() {
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-brand-500"
               />
             </div>
+
             <div>
               <label className="block text-sm text-gray-400 mb-1.5">Confirm password</label>
               <input
