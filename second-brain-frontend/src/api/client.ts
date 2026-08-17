@@ -32,14 +32,20 @@ api.interceptors.response.use(
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export const authApi = {
-  register: (username: string, password: string) =>
-    api.post<User>('/auth/register', { username, password }),
+  register: (username: string, password: string, email?: string) =>
+    api.post<User>('/auth/register', { username, password, email: email || undefined }),
 
   login: (username: string, password: string) =>
     api.post<TokenResponse>('/auth/login', { username, password }),
 
   googleLogin: (idToken: string) =>
     api.post<TokenResponse>('/auth/google', { id_token: idToken }),
+
+  forgotPassword: (identifier: string) =>
+    api.post<{ message: string }>('/auth/forgot-password', { identifier }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    api.post<{ message: string }>('/auth/reset-password', { token, new_password: newPassword }),
 
   me: () => api.get<User>('/auth/me'),
 }
