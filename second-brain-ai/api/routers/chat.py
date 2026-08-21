@@ -1,4 +1,8 @@
-"""Chat endpoints — PostgreSQL-backed with session ownership verification."""
+"""
+Chat endpoints — PostgreSQL-backed, rate limited per user.
+Chat calls a real LLM (possibly a paid API), so limits here directly
+protect against runaway API cost, not just abuse.
+"""
 import logging
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -6,9 +10,15 @@ from fastapi.responses import StreamingResponse
 from api.models.schemas import ChatRequest, ChatResponse
 from api.dependencies import CurrentUser, get_brain
 from src.db.session_store import save_chat_message, get_session
+from src.utils.rate_limiter import rate_limit_key_for_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["Chat"])
+
+# Both /ask and /ask/stream share one budget under the "chat" scope so a
+# user can't dodge the limit by alternating between the two endpoints.
+CHAT_MAX_REQUESTS = 20
+CHAT_WINDOW_SECONDS = 60
 
 
 @router.post("/ask", response_model=ChatResponse, summary="Ask a question about your notes")
@@ -16,7 +26,10 @@ async def ask(body: ChatRequest, current_user: CurrentUser) -> ChatResponse:
     """
     Ask a question about indexed notes (RAG).
     Only the session owner can query their session.
+    Rate limited to 20 requests/minute per user.
     """
+    rate_limit_key_for_user(current_user["id"], "chat", CHAT_MAX_REQUESTS, CHAT_WINDOW_SECONDS)
+
     session = get_session(body.session_id, current_user["id"])
     if not session:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
@@ -41,7 +54,10 @@ async def ask_stream(body: ChatRequest, current_user: CurrentUser):
     """
     Stream the AI response token by token.
     Only supported with the Ollama (local) provider.
+    Shares the same rate budget as /ask.
     """
+    rate_limit_key_for_user(current_user["id"], "chat", CHAT_MAX_REQUESTS, CHAT_WINDOW_SECONDS)
+
     if body.provider != "ollama":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
