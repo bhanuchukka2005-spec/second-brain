@@ -1,4 +1,8 @@
-"""Study features — MCQ, flashcards, summarize, compare, concept map, study plan, scores."""
+"""
+Study features — MCQ, flashcards, summarize, compare, concept map, study plan, scores.
+All LLM-calling endpoints share one rate limit budget via _get_brain(),
+so a user can't dodge the limit by spreading requests across features.
+"""
 import logging
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, status
@@ -19,13 +23,19 @@ from src.db.session_store import (
     load_quiz_scores,
     get_session,
 )
+from src.utils.rate_limiter import rate_limit_key_for_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/study", tags=["Study Features"])
 
+STUDY_MAX_REQUESTS = 15
+STUDY_WINDOW_SECONDS = 60
+
 
 def _get_brain(body, current_user):
-    """Verify session ownership and return brain instance."""
+    """Verify session ownership, enforce rate limit, and return brain instance."""
+    rate_limit_key_for_user(current_user["id"], "study", STUDY_MAX_REQUESTS, STUDY_WINDOW_SECONDS)
+
     session = get_session(body.session_id, current_user["id"])
     if not session:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
@@ -115,6 +125,7 @@ async def study_plan(body: StudyPlanRequest, current_user: CurrentUser) -> Study
     summary="Save a quiz score",
 )
 async def save_score(body: QuizScoreRequest, current_user: CurrentUser) -> QuizScoreResponse:
+    # No LLM call here, just a DB write — no rate limit needed.
     session = get_session(body.session_id, current_user["id"])
     if not session:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found.")
