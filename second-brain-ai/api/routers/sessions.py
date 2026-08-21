@@ -1,6 +1,7 @@
 """
 Session management — PostgreSQL + persistent ChromaDB.
 Sessions survive backend restarts. Users only see their own sessions.
+Indexing is rate limited — it's CPU/IO-heavy (embeddings, file parsing).
 """
 import logging
 import tempfile
@@ -18,9 +19,13 @@ from src.db.session_store import (
     delete_session, load_chat_history, update_session_chroma_path,
 )
 from src.utils.retry import validate_file_upload, validate_youtube_url
+from src.utils.rate_limiter import rate_limit_key_for_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
+
+INDEX_MAX_REQUESTS = 10
+INDEX_WINDOW_SECONDS = 3600
 
 
 def _fmt(s: dict) -> SessionResponse:
@@ -67,7 +72,11 @@ async def index_files(
     """
     Upload PDF, PPTX, or TXT files and/or a YouTube URL.
     Data is persisted to disk — sessions survive backend restarts.
+    Rate limited to 10 indexing operations/hour per user — this is the
+    most resource-intensive endpoint (file parsing + embedding generation).
     """
+    rate_limit_key_for_user(current_user["id"], "index", INDEX_MAX_REQUESTS, INDEX_WINDOW_SECONDS)
+
     if not files and not youtube_url.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -77,7 +86,6 @@ async def index_files(
     all_docs = []
     file_names = []
 
-    # Process uploaded files
     for file in files:
         content = await file.read()
         filename = file.filename or "unknown"
@@ -104,7 +112,6 @@ async def index_files(
         finally:
             os.unlink(tmp_path)
 
-    # Process YouTube URL
     if youtube_url.strip():
         validate_youtube_url(youtube_url.strip())
         from src.features.youtube_loader import fetch_transcript, get_video_title
@@ -117,7 +124,6 @@ async def index_files(
             detail="No content could be extracted from the provided files.",
         )
 
-    # Save to PostgreSQL first to get real session ID
     name = session_name.strip() or f"Session ({len(file_names)} files)"
     sid = save_session(
         name=name,
@@ -126,7 +132,6 @@ async def index_files(
         user_id=current_user["id"],
     )
 
-    # Index into persistent ChromaDB using real session ID
     store = PersistentChromaStore(session_id=sid)
     store.index(all_docs)
     register_store(sid, store)
