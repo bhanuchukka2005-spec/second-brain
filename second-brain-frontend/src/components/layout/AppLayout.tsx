@@ -62,12 +62,12 @@ export function AppLayout() {
     <div className="flex h-screen bg-gray-950 overflow-hidden">
       <aside
         className={clsx(
-          'flex flex-col bg-gradient-to-b from-gray-900 to-gray-950 border-r border-gray-800/80 transition-all duration-300 shrink-0',
+          'flex flex-col h-full bg-gradient-to-b from-gray-900 to-gray-950 border-r border-gray-800/80 transition-all duration-300 shrink-0',
           sidebarOpen ? 'w-72' : 'w-[68px]'
         )}
       >
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-5 border-b border-gray-800/80">
+        {/* Logo — pinned, never scrolls */}
+        <div className="shrink-0 flex items-center gap-3 px-4 py-5 border-b border-gray-800/80">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shrink-0 shadow-lg shadow-brand-600/30">
             <Brain className="w-5 h-5 text-white" />
           </div>
@@ -82,108 +82,115 @@ export function AppLayout() {
           </button>
         </div>
 
-        {/* Primary nav */}
-        <nav className="px-2.5 py-4 space-y-0.5">
-          {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                clsx(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group relative',
-                  isActive
-                    ? 'bg-brand-600/15 text-brand-300'
-                    : 'text-gray-400 hover:bg-gray-800/70 hover:text-white'
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-400 rounded-r-full" />
-                  )}
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {sidebarOpen && <span className="truncate">{label}</span>}
-                </>
-              )}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Sessions section */}
-        <div className="flex-1 min-h-0 flex flex-col border-t border-gray-800/80 mt-1">
-          <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-            {sidebarOpen ? (
-              <button
-                onClick={() => setSessionsExpanded(!sessionsExpanded)}
-                className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
+        {/* Scrollable middle region — nav AND sessions scroll together here.
+            This is the fix: previously nav was fixed-height and sessions
+            was squeezed into whatever tiny space was left over on short
+            windows. Now the whole region scrolls as one unit, so sessions
+            always get a fair, readable amount of space. */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {/* Primary nav */}
+          <nav className="px-2.5 py-4 space-y-0.5">
+            {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
+              <NavLink
+                key={to}
+                to={to}
+                className={({ isActive }) =>
+                  clsx(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group relative',
+                    isActive
+                      ? 'bg-brand-600/15 text-brand-300'
+                      : 'text-gray-400 hover:bg-gray-800/70 hover:text-white'
+                  )
+                }
               >
-                Sessions
-                <ChevronDown className={clsx('w-3 h-3 transition-transform', !sessionsExpanded && '-rotate-90')} />
-              </button>
-            ) : (
-              <div className="w-full h-3" />
-            )}
-            <button
-              onClick={() => setUploadOpen(true)}
-              className={clsx(
-                'text-brand-400 hover:text-brand-300 hover:bg-brand-500/10 rounded-lg transition-colors',
-                sidebarOpen ? 'p-1' : 'p-1.5 mx-auto'
-              )}
-              title="New session"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-
-          {sessionsExpanded && (
-            <div className="flex-1 overflow-y-auto px-2.5 pb-2 space-y-1">
-              {sessions.length === 0 && sidebarOpen && (
-                <p className="text-xs text-gray-600 px-2.5 py-2 leading-relaxed">
-                  No sessions yet.<br />Click + to upload notes.
-                </p>
-              )}
-              {sessions.map((s: Session) => (
-                <div
-                  key={s.id}
-                  onClick={() => setActiveSession(s)}
-                  className={clsx(
-                    'group flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
-                    activeSession?.id === s.id
-                      ? 'bg-brand-500/15 ring-1 ring-brand-500/30'
-                      : 'hover:bg-gray-800/60'
-                  )}
-                >
-                  <div
-                    className={clsx(
-                      'w-2 h-2 rounded-full shrink-0',
-                      activeSession?.id === s.id ? 'bg-brand-400' : 'bg-gray-700'
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-brand-400 rounded-r-full" />
                     )}
-                  />
-                  {sidebarOpen && (
-                    <>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-white truncate font-medium">{s.name}</p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {s.chunk_count} chunks · {s.created_at.slice(0, 10)}
-                        </p>
-                      </div>
-                      <button
-                        onClick={(e) => handleDelete(e, s.id)}
-                        className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all shrink-0"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              ))}
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {sidebarOpen && <span className="truncate">{label}</span>}
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </nav>
+
+          {/* Sessions */}
+          <div className="border-t border-gray-800/80 mt-1">
+            <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              {sidebarOpen ? (
+                <button
+                  onClick={() => setSessionsExpanded(!sessionsExpanded)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
+                >
+                  Sessions
+                  <ChevronDown className={clsx('w-3 h-3 transition-transform', !sessionsExpanded && '-rotate-90')} />
+                </button>
+              ) : (
+                <div className="w-full h-3" />
+              )}
+              <button
+                onClick={() => setUploadOpen(true)}
+                className={clsx(
+                  'text-brand-400 hover:text-brand-300 hover:bg-brand-500/10 rounded-lg transition-colors',
+                  sidebarOpen ? 'p-1' : 'p-1.5 mx-auto'
+                )}
+                title="New session"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
             </div>
-          )}
+
+            {sessionsExpanded && (
+              <div className="px-2.5 pb-3 space-y-1">
+                {sessions.length === 0 && sidebarOpen && (
+                  <p className="text-xs text-gray-600 px-2.5 py-2 leading-relaxed">
+                    No sessions yet.<br />Click + to upload notes.
+                  </p>
+                )}
+                {sessions.map((s: Session) => (
+                  <div
+                    key={s.id}
+                    onClick={() => setActiveSession(s)}
+                    className={clsx(
+                      'group flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
+                      activeSession?.id === s.id
+                        ? 'bg-brand-500/15 ring-1 ring-brand-500/30'
+                        : 'hover:bg-gray-800/60'
+                    )}
+                  >
+                    <div
+                      className={clsx(
+                        'w-2 h-2 rounded-full shrink-0',
+                        activeSession?.id === s.id ? 'bg-brand-400' : 'bg-gray-700'
+                      )}
+                    />
+                    {sidebarOpen && (
+                      <>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white truncate font-medium">{s.name}</p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {s.chunk_count} chunks · {s.created_at.slice(0, 10)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={(e) => handleDelete(e, s.id)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Provider + user footer */}
-        <div className="border-t border-gray-800/80 px-2.5 py-3 space-y-1">
+        {/* Provider + user footer — pinned, never scrolls */}
+        <div className="shrink-0 border-t border-gray-800/80 px-2.5 py-3 space-y-1">
           <button
             onClick={() => setProviderOpen(true)}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-gray-800/70 hover:text-white transition-all"
@@ -223,7 +230,7 @@ export function AppLayout() {
         </div>
       </aside>
 
-      {/* Main content — no duplicate tab bar, just the page */}
+      {/* Main content */}
       <main className="flex-1 overflow-auto bg-gray-950">
         <Outlet />
       </main>
