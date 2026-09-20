@@ -1,7 +1,8 @@
 """
-AI Second Brain — FastAPI Backend (Phase 4: PostgreSQL)
+AI Second Brain — FastAPI Backend
 Run: uvicorn api.main:app --reload --port 8000
 """
+import os
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -21,9 +22,9 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting %s v%s", config.app_name, config.app_version)
-    init_pool()        # Connect to PostgreSQL
-    init_db()          # Create tables if not exist
-    config.validate()  # Create data/ and logs/ dirs
+    init_pool()
+    init_db()
+    config.validate()
     logger.info("API ready → http://localhost:8000/docs")
     yield
     logger.info("Shutting down")
@@ -32,13 +33,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="🧠 AI Second Brain API",
     description="""
-Production-grade AI study companion — Phase 4 with PostgreSQL persistence.
-
-## What's new in Phase 4
-- **PostgreSQL** replaces SQLite — data persists forever
-- **Persistent ChromaDB** — sessions survive backend restarts
-- **Multi-user** — each user sees only their own sessions
-- **User isolation** — complete data separation per user
+Production-grade AI study companion — PostgreSQL persistence, Google OAuth,
+password reset, rate limiting, and 8 LLM providers (7 cloud + local Ollama).
 
 ## Authentication
 1. Register: `POST /auth/register`
@@ -49,13 +45,20 @@ Production-grade AI study companion — Phase 4 with PostgreSQL persistence.
     lifespan=lifespan,
 )
 
+# ── CORS ──────────────────────────────────────────────────────────────────────
+# Reads allowed origins from CORS_ORIGINS env var (comma-separated).
+# Falls back to localhost dev ports if not set. When you deploy the frontend
+# (Vercel, Netlify, etc.), add its real URL here — e.g.:
+#   CORS_ORIGINS=https://your-app.vercel.app,http://localhost:3000
+_default_origins = "http://localhost:3000,http://localhost:5173,http://localhost:8501"
+_origins_env = os.getenv("CORS_ORIGINS", _default_origins)
+ALLOWED_ORIGINS = [origin.strip() for origin in _origins_env.split(",") if origin.strip()]
+
+logger.info("CORS allowed origins: %s", ALLOWED_ORIGINS)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:8501",
-    ],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
