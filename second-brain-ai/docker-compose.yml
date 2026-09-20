@@ -7,6 +7,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: second-brain-api
+    # This now actually works — Dockerfile uses CMD, so this command
+    # replaces it cleanly instead of getting appended to an ENTRYPOINT.
     command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
@@ -16,9 +18,10 @@ services:
     env_file:
       - .env
     environment:
-      - DB_PATH=data/sessions.db
       - LOG_DIR=logs
       - LOG_LEVEL=INFO
+      # PostgreSQL connection (PG_HOST etc.) and JWT_SECRET_KEY come from
+      # .env via env_file above — no need to duplicate them here.
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -27,7 +30,7 @@ services:
       retries: 3
       start_period: 15s
 
-  # ── Streamlit UI (original) ──────────────────────────────────────────────────
+  # ── Streamlit UI (legacy stub — points users to the React frontend) ──────────
   streamlit:
     build:
       context: .
