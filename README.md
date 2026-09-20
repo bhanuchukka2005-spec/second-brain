@@ -109,7 +109,7 @@ Full list in `second-brain-ai/.env.example`.
 
 ## 📄 License
 
-MIT
+MIT [LICENSE](LICENSE)
 
 ---
 
