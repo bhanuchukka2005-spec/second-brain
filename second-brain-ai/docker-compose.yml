@@ -7,8 +7,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: second-brain-api
-    # This now actually works — Dockerfile uses CMD, so this command
-    # replaces it cleanly instead of getting appended to an ENTRYPOINT.
     command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
       - "8000:8000"
@@ -20,8 +18,20 @@ services:
     environment:
       - LOG_DIR=logs
       - LOG_LEVEL=INFO
-      # PostgreSQL connection (PG_HOST etc.) and JWT_SECRET_KEY come from
-      # .env via env_file above — no need to duplicate them here.
+      # Override PG_HOST just for this container. Inside Docker, "localhost"
+      # means the container itself — it can't see PostgreSQL running natively
+      # on your Windows/Mac host. host.docker.internal is Docker's special
+      # DNS name that always resolves back to the host machine.
+      #
+      # Your .env keeps PG_HOST=localhost unchanged, which stays correct for
+      # running `uvicorn` directly on Windows (outside Docker). This override
+      # only applies when running via docker-compose.
+      - PG_HOST=host.docker.internal
+    # extra_hosts makes host.docker.internal resolve on Linux too — Docker
+    # Desktop on Windows/Mac already supports it natively, this line is a
+    # harmless no-op there and a required fix on Linux hosts.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -44,6 +54,10 @@ services:
       - ./logs:/app/logs
     env_file:
       - .env
+    environment:
+      - PG_HOST=host.docker.internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - api
     restart: unless-stopped
