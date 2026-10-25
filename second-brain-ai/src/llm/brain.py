@@ -53,7 +53,7 @@ class SecondBrain:
         elif self.provider == "groq":
             from groq import Groq
             self.client = Groq(api_key=api_key)
-            self.model = "llama-3.3-70b-versatile"
+            self.model = "openai/gpt-oss-20b"
 
         elif self.provider == "gemini":
             import google.generativeai as genai
