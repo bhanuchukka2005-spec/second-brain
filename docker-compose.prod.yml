@@ -1,0 +1,75 @@
+# Production stack for a single server (e.g. AWS EC2).
+# Run from the repo root:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Reads secrets from a .env file in the same folder (create it on the server;
+# never commit it).
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: second_brain
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d second_brain"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./second-brain-ai
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_HOST: db
+      PG_PORT: "5432"
+      PG_DB: second_brain
+      PG_USER: postgres
+      PG_PASSWORD: "${POSTGRES_PASSWORD}"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-195046896396-a620heggt6bibibvfgsm2jktpm20ln5g.apps.googleusercontent.com}"
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-587}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      FRONTEND_URL: "${FRONTEND_URL:-http://localhost}"
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost}"
+      CHROMA_DIR: /app/data/chroma
+      LOG_DIR: /app/logs
+      LOG_LEVEL: INFO
+    volumes:
+      - appdata:/app/data            # ChromaDB vectors — survive restarts and redeploys
+      - applogs:/app/logs
+      - chroma_cache:/root/.cache/chroma   # embedding model, downloaded once
+    # No ports published: the API is only reachable through the web service.
+
+  web:
+    build: ./second-brain-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      # ":80" = plain HTTP on the server's IP. Set DOMAIN=yourname.duckdns.org
+      # in .env and Caddy fetches an HTTPS certificate automatically.
+      DOMAIN: "${DOMAIN:-:80}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  appdata:
+  applogs:
+  chroma_cache:
+  caddy_data:
+  caddy_config:
