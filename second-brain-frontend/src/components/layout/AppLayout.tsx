@@ -72,7 +72,7 @@ export function AppLayout() {
             <Brain className="w-5 h-5 text-white" />
           </div>
           {sidebarOpen && (
-            <span className="font-semibold text-white truncate tracking-tight">Second Brain</span>
+            <span className="font-semibold text-white truncate tracking-tight">NoteMind</span>
           )}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
