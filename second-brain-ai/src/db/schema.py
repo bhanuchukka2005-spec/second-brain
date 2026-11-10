@@ -1,5 +1,5 @@
 """
-Database schema for AI Second Brain.
+Database schema for NoteMind.
 Run automatically on backend startup via init_db().
 """
 import logging
