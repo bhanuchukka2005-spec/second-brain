@@ -1,4 +1,4 @@
-# 🧠 NoteMind
+# 🧠 AI Second Brain
 
 > Chat with your notes. Ace your exams. Run it fully offline for free, or plug in your own API key for a cloud LLM — your choice.
 
