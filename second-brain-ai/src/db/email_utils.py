@@ -42,7 +42,7 @@ def send_password_reset_email(to_email: str, username: str, token: str) -> bool:
 
     try:
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = "Reset your AI Second Brain password"
+        msg["Subject"] = "Reset your NoteMind password"
         msg["From"] = SMTP_FROM
         msg["To"] = to_email
 
@@ -57,7 +57,7 @@ def send_password_reset_email(to_email: str, username: str, token: str) -> bool:
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
             <h2>🧠 Reset your password</h2>
             <p>Hi {username},</p>
-            <p>Someone requested a password reset for your AI Second Brain account.</p>
+            <p>Someone requested a password reset for your NoteMind account.</p>
             <p>
                 <a href="{reset_link}"
                    style="display:inline-block; padding:12px 24px; background:#6366f1;
