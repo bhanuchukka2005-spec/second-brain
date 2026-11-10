@@ -7,7 +7,7 @@ load_dotenv()
 
 @dataclass
 class AppConfig:
-    app_name: str = "AI Second Brain"
+    app_name: str = "NoteMind"
     app_version: str = "2.0.0"
     debug: bool = field(default_factory=lambda: os.getenv("DEBUG", "false").lower() == "true")
     db_path: str = field(default_factory=lambda: os.getenv("DB_PATH", "data/sessions.db"))
