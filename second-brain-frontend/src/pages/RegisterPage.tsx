@@ -37,7 +37,7 @@ export function RegisterPage() {
             <Brain className="w-8 h-8 text-brand-400" />
           </div>
           <h1 className="text-3xl font-bold text-white">Create account</h1>
-          <p className="text-gray-400 mt-2 text-sm">Start building your second brain today.</p>
+          <p className="text-gray-400 mt-2 text-sm">Start turning your notes into answers.</p>
         </div>
 
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8">
