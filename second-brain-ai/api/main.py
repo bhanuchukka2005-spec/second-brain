@@ -1,5 +1,5 @@
 """
-NoteMind — FastAPI Backend
+AI Second Brain — FastAPI Backend
 Run: uvicorn api.main:app --reload --port 8000
 """
 import os
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="🧠 NoteMind API",
+    title="🧠 AI Second Brain API",
     description="""
 Production-grade AI study companion — PostgreSQL persistence, Google OAuth,
 password reset, rate limiting, and 8 LLM providers (7 cloud + local Ollama).
