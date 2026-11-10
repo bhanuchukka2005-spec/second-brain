@@ -1,6 +1,6 @@
-# 🧠 NoteMind — React Frontend
+# 🧠 AI Second Brain — React Frontend
 
-Modern React frontend for the NoteMind project.
+Modern React frontend for the AI Second Brain project.
 Built with Vite, TypeScript, Tailwind CSS, and Zustand.
 
 ---
