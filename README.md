@@ -1,116 +1,146 @@
 # 🧠 AI Second Brain
 
-> Chat with your notes. Ace your exams. Run it fully offline for free, or plug in your own API key for a cloud LLM — your choice.
+> Chat with your own notes. Upload PDFs, slides or YouTube lectures, then ask questions, take quizzes, and generate flashcards and concept maps, powered by Retrieval-Augmented Generation (RAG).
 
-A full-stack AI study companion — upload your notes, PDFs, slides, or YouTube lectures, then chat with them, generate quizzes, flashcards, concept maps, and summaries.
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
----
+## Screenshots
 
-## ✨ Features
+| Chat with sources | Adaptive quiz |
+|---|---|
+| ![Chat](docs/screenshots/chat.png) | ![Quiz](docs/screenshots/quiz.png) |
 
-- 💬 **Chat with your notes** — RAG-based Q&A with source citations
-- 📝 **Adaptive MCQ quizzes** — gets harder on topics you get wrong
-- 🃏 **Flashcards** — Anki-compatible export
-- 🗺️ **Concept maps** — rendered live as visual mind maps
-- 📊 **Dashboard** — score history and performance charts
-- 📄 **Summarize & compare** topics from your notes
-- 🎥 **YouTube support** — index a video's transcript directly
-- 🔑 **8 LLM providers** — run fully offline and free with local Ollama (no API key), or use your own key with Groq, Gemini, OpenAI, Anthropic, Mistral, Cohere, or Together AI
-- 🔐 **Auth** — username/password, Google Sign-In, and password reset via email
-- 🚦 **Rate limiting** — protects against abuse and runaway API costs
-- 🗄️ **PostgreSQL persistence** — sessions and history survive backend restarts
+| Concept map | Dashboard |
+|---|---|
+| ![Concept map](docs/screenshots/concept-map.png) | ![Dashboard](docs/screenshots/dashboard.png) |
 
----
+## Features
 
-## 🏗️ Architecture
+- 💬 **Chat with your notes**: answers come from your material, with source citations
+- 📝 **MCQ quizzes**: questions are regenerated with extra focus on topics you missed
+- 🃏 **Flashcards**: exportable as CSV for Anki
+- 🗺️ **Concept maps**: generated as Mermaid diagrams and rendered in the browser
+- 📊 **Dashboard**: score history and per-topic performance charts
+- 📄 **Summarize and compare** topics across your notes
+- 🎥 **YouTube lectures**: index a video's transcript
+- 🔑 **8 LLM providers**: Ollama (local, free, offline) or your own key for Groq, Gemini, OpenAI, Anthropic, Mistral, Cohere or Together AI
+- 🔐 **Auth**: username and password, Google Sign-In, password reset by email
+- 🚦 **Rate limiting** and retry with backoff on LLM calls
+- 🗄️ **Persistence**: PostgreSQL for users and history, ChromaDB on disk for vectors
+
+## How it works (RAG)
+
+1. **Ingest**: PDFs, PowerPoint files and YouTube transcripts are parsed to text
+2. **Chunk**: text is split into 500-word chunks with a 50-word overlap
+3. **Embed**: each chunk is embedded locally with ChromaDB's default model (all-MiniLM-L6-v2)
+4. **Store**: vectors go into a persistent ChromaDB collection, one per session
+5. **Retrieve**: your question is embedded and the most similar chunks are fetched
+6. **Generate**: the chunks and your question go to the selected LLM with the instruction to answer only from your notes
+7. **Cite**: the source file names are returned with the answer
+
+No model is trained or fine-tuned. The project uses pretrained LLMs and embeddings.
+
+## Tech stack
+
+| Area | Technologies |
+|---|---|
+| GenAI / RAG | Pretrained LLMs (8 providers), prompt engineering, ChromaDB, sentence embeddings, Ollama |
+| Backend | Python, FastAPI, Pydantic, PostgreSQL (psycopg2), JWT, PBKDF2, Google OAuth 2.0, SMTP |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS, Zustand, Recharts, Mermaid.js |
+| DevOps | Docker, Docker Compose, Caddy (reverse proxy, automatic HTTPS), GitHub Actions, pytest, AWS EC2 |
+
+## Project structure
 
 ```
 second-brain/
-├── second-brain-ai/          Python backend (FastAPI)
-│   ├── api/                  Routes, schemas, auth dependencies
-│   ├── src/
-│   │   ├── db/                PostgreSQL, Google OAuth, email, vector store
-│   │   ├── llm/                Unified brain — 8 providers
-│   │   ├── features/           YouTube, flashcards, quizzes, concept maps
-│   │   └── utils/               Retry logic, rate limiter, topic tracker
-│   └── tests/                 pytest suite
-│
-└── second-brain-frontend/    React + TypeScript + Vite frontend
-    └── src/
-        ├── api/               Axios client
-        ├── store/             Zustand state
-        ├── components/        Chat, quiz, flashcards, layout
-        └── pages/             Login, register, reset password, sessions
+├── docker-compose.prod.yml      Production stack: Postgres + API + web
+├── second-brain-ai/             FastAPI backend
+│   ├── api/                     Routes, schemas, dependencies
+│   ├── src/                     DB, LLM brain, features, utilities
+│   └── tests/                   pytest suite
+└── second-brain-frontend/       React + TypeScript frontend
+    ├── src/
+    ├── Dockerfile               Builds the app and serves it with Caddy
+    └── Caddyfile                Static files, /api proxy, optional HTTPS
 ```
 
----
+## Run locally
 
-## 🚀 Local Development
-
-### Backend
+**Backend** (needs PostgreSQL with a database named `second_brain`):
 ```bash
 cd second-brain-ai
 pip install -r requirements.txt
-cp .env.example .env        # fill in PostgreSQL + JWT secret
+cp .env.example .env        # add your PostgreSQL password and a JWT secret
 uvicorn api.main:app --reload --port 8000
 ```
-API docs: `http://localhost:8000/docs`
 
-### Frontend
+**Frontend:**
 ```bash
 cd second-brain-frontend
 npm install
-npm run dev
+npm run dev                 # http://localhost:3000
 ```
-App: `http://localhost:3000`
 
-### Option A — run fully offline with Ollama (no API key)
+**LLM provider:** pick one in the app's AI Provider settings.
+- *Offline:* install [Ollama](https://ollama.com), run `ollama pull llama3.2` and `ollama serve`
+- *Cloud:* paste your own API key (Groq has a free tier)
+
+## Run with Docker
+
+Create a `.env` file next to `docker-compose.prod.yml`:
+```
+DOMAIN=:80
+POSTGRES_PASSWORD=choose-a-password
+JWT_SECRET_KEY=a-long-random-string
+FRONTEND_URL=http://localhost
+CORS_ORIGINS=http://localhost
+```
 ```bash
-ollama pull llama3.2
-ollama serve
+docker compose -f docker-compose.prod.yml up -d --build
 ```
-Select "🖥️ Local — Ollama" as the provider in the app.
+Open `http://localhost`. If port 80 is taken, add `WEB_PORT=8080` to `.env` and use `http://localhost:8080` (and update the two URLs).
 
-### Option B — use your own API key
-Select any of the 7 cloud providers (Groq, Gemini, OpenAI, Anthropic, Mistral, Cohere, Together AI) in the app's provider settings and paste in your key. Groq's free tier is a good starting point.
+## Deploy on AWS EC2
 
----
+1. Launch an Ubuntu 24.04 `t3.small` instance with about 25 GB of storage. Allow ports 22, 80 and 443.
+2. Install Docker, clone this repo, and create the `.env` file shown above with the server's address.
+3. Run `docker compose -f docker-compose.prod.yml up -d --build`.
+4. For HTTPS and Google Sign-In, point a domain at the server and set `DOMAIN=your.domain`. Caddy obtains the certificate automatically. Add `https://your.domain` to Authorized JavaScript origins in Google Cloud Console.
 
-## 🧪 Tests
+Ollama is meant for local use. On a server, use a cloud provider key.
+
+## Configuration
+
+| Variable | Purpose |
+|---|---|
+| `DOMAIN` | `:80` for plain HTTP, or a domain name for automatic HTTPS |
+| `POSTGRES_PASSWORD`, `JWT_SECRET_KEY` | Required secrets |
+| `FRONTEND_URL`, `CORS_ORIGINS` | Public URL of the app |
+| `GOOGLE_CLIENT_ID` | Optional, defaults to the project's client ID |
+| `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` | Optional, for password reset emails (links are logged if unset) |
+| `WEB_PORT` | Optional, host port for the web service (default 80) |
+
+## Tests
 
 ```bash
 cd second-brain-ai
 pytest tests/ -v
 ```
 
----
+## Limitations
 
-## 🌍 Deployment
+- Answer quality depends on the chosen LLM and the quality of your notes
+- "Weak topics" is a keyword-frequency heuristic, not a trained model
+- API keys are entered in the browser and sent with each request, so use HTTPS in any shared deployment
+- The rate limiter keeps counts in memory, so it assumes a single backend process
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for step-by-step instructions to deploy the backend on Railway and the frontend on Vercel.
+## License
 
-**Note:** Ollama only works for local development — it can't run on typical cloud hosts. For a deployed app, users should bring their own API key with a cloud provider (Groq's free tier is a good default).
+MIT. See [LICENSE](LICENSE).
 
----
-
-## 🔑 Environment Variables (Backend)
-
-| Variable | Purpose |
-|---|---|
-| `PG_HOST`, `PG_PORT`, `PG_DB`, `PG_USER`, `PG_PASSWORD` | PostgreSQL connection |
-| `JWT_SECRET_KEY` | Signs auth tokens — use a long random string in production |
-| `GOOGLE_CLIENT_ID` | Google Sign-In |
-| `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` | Password reset emails (optional — logs to console if unset) |
-| `CORS_ORIGINS` | Comma-separated list of allowed frontend URLs |
-
-Full list in `second-brain-ai/.env.example`.
-
----
-
-## 📄 License
-
-MIT [LICENSE](LICENSE)
-
----
-
-Built by **Bhanu Prakash** — drop a ⭐ if this helped you!
+Built by [Bhanu Prakash](https://github.com/bhanuchukka2005-spec).
