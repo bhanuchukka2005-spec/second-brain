@@ -11,9 +11,9 @@
 
 ## Screenshots
 
-| Chat with sources | Adaptive quiz |
+| Login page | Chat  |
 |---|---|
-| ![Chat](docs/screenshots/chat.png) | ![Quiz](docs/screenshots/quiz.png) |
+| ![Login](docs/screenshots/login.png) | ![Chat](docs/screenshots/chat.png) |
 
 | Concept map | Dashboard |
 |---|---|
